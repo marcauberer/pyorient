@@ -17,7 +17,7 @@
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
 import os
-from .exceptions import PyOrientConnectionException
+from .exceptions import PyOrientConnectionException, PyOrientDatabaseException
 
 
 def is_debug_active():
@@ -39,5 +39,14 @@ def need_connected(wrap):
         # Raise exception, if the passed client is not connected
         if not args[0].is_connected():
             raise PyOrientConnectionException("You must be connected to issue this command", [])
+        return wrap(*args, **kwargs)
+    return wrap_function
+
+
+def need_db_opened(wrap):
+    @need_connected
+    def wrap_function(*args, **kwargs):
+        if args[0].database_opened() is None:
+            raise PyOrientDatabaseException("You must have an opened database to issue this command", [])
         return wrap(*args, **kwargs)
     return wrap_function

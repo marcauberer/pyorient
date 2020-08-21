@@ -39,11 +39,12 @@ class GraphUsageTestCase(unittest.TestCase):
 
     def testGraph(self):
         # Create Vertex 'Animal'
-        #self.client.command("create class Animal extends V")
+        self.client.command("create class Animal extends V")
         # Insert a value
-        #self.client.command("insert into Animal set name = 'rat', specie = 'rodent'")
+        self.client.command("insert into Animal set name = 'rat', specie = 'rodent'")
         self.client.close()
 
 
 if __name__ == '__main__':
     unittest.main()
+
