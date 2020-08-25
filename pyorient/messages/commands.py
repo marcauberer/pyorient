@@ -17,3 +17,5 @@
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
 from .base import BaseMessage
+from .records import RecordUpdateMessage, RecordDeleteMessage, RecordCreateMessage
+from ..exceptions import PyOrientBadMethodCallException
