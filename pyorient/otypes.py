@@ -16,6 +16,8 @@
 
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
+import re
+
 
 class OrientRecord(object):
     """
