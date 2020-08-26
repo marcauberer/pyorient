@@ -17,9 +17,11 @@
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
 from .base import BaseMessage
-from ..constants import RECORD_TYPE_DOCUMENT, FIELD_BYTE, RECORD_CREATE_OP
+from ..constants import RECORD_TYPE_DOCUMENT, FIELD_BYTE, FIELD_INT, FIELD_LONG, FIELD_SHORT, FIELD_BOOLEAN,\
+    FIELD_STRING, RECORD_CREATE_OP, RECORD_TYPES
+from ..exceptions import PyOrientConnectionException, PyOrientBadMethodCallException
 from ..otypes import OrientRecord
-from ..utils import need_db_opened
+from ..utils import need_db_opened, parse_cluster_id, parse_cluster_position
 
 #
 # RECORD CREATE
@@ -53,6 +55,7 @@ class RecordCreateMessage(BaseMessage):
         super(RecordCreateMessage, self).__init__(_orient_socket)
 
         # Initialize attributes with default values
+        self._data_segment_id = -1  # default
         self._cluster_id = b'0'
         self._record_content = OrientRecord
         self._record_type = RECORD_TYPE_DOCUMENT
@@ -61,22 +64,79 @@ class RecordCreateMessage(BaseMessage):
 
     @need_db_opened
     def prepare(self, params=None):
-        pass
+        try:
+            # Use provided data
+            self.set_cluster_id(params[0])
+            self._record_content = params[1]
+            self.set_record_type(params[2])  # optional
+        except IndexError:
+            # Use default for non existent indexes
+            pass
+
+        # Get instance of OrientRecord
+        record = self._record_content
+        if not isinstance(record, OrientRecord):
+            record = self._record_content = OrientRecord(record)
+
+        # Append header fields
+        o_record_enc = self.get_serializer().encode(record)
+        self._append((FIELD_SHORT, int(self._cluster_id)))
+        self._append((FIELD_STRING, o_record_enc))
+        self._append((FIELD_BYTE, self._record_type))
+        self._append((FIELD_BOOLEAN, self._mode_async))
+
+        return super(RecordCreateMessage, self).prepare()
 
     def fetch_response(self):
-        pass
+        # skip execution in case of transaction
+        if self._orientSocket.in_transaction is True:
+            return self
+
+        self._append(FIELD_SHORT)  # cluster-id
+        self._append(FIELD_LONG)  # cluster-position
+        self._append(FIELD_INT)  # record-version
+        result = super(RecordCreateMessage, self).fetch_response()
+
+        try:
+            _changes = []
+            chng = self._decode_field(FIELD_INT)  # Count of collection changes
+            for x in range(0, chng):
+                change = [
+                    self._decode_field(FIELD_LONG),  # (uuid-most-sig-bits:long)
+                    self._decode_field(FIELD_LONG),  # (uuid-least-sig-bits:long)
+                    self._decode_field(FIELD_LONG),  # (updated-file-id:long)
+                    self._decode_field(FIELD_LONG),  # (updated-page-index:long)
+                    self._decode_field(FIELD_INT)  # (updated-page-offset:int)
+                ]
+                _changes.append(change)
+        except (PyOrientConnectionException, TypeError):
+            pass
+
+        rid = "#" + str(result[0]) + ":" + str(result[1])
+        version = result[2]
+        self._record_content.update(__version=version, __rid=rid)
+
+        return self._record_content  # [ self._record_content, _changes ]
 
     def set_data_segment_id(self, data_segment_id):
-        pass
+        self._data_segment_id = data_segment_id
+        return self
 
     def set_cluster_id(self, cluster_id):
-        pass
+        self._cluster_id = parse_cluster_id(cluster_id)
+        return self
 
     def set_record_content(self, record):
-        pass
+        self._record_content = record
+        return self
 
     def set_record_type(self, record_type):
-        pass
+        if record_type in RECORD_TYPES:
+            # user choice storage if present
+            self._record_type = record_type
+        else:
+            raise PyOrientBadMethodCallException(record_type + ' is not a valid record type', [])
+        return self
 
     def set_mode_async(self):
         self._mode_async = 1

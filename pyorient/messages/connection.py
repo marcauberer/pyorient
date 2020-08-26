@@ -47,14 +47,11 @@ class ConnectMessage(BaseMessage):
         # Append header fields
         self._append((FIELD_STRINGS, [NAME, VERSION]))
         self._append((FIELD_SHORT, SUPPORTED_PROTOCOL))
-
         self._append((FIELD_STRING, self._client_id))
-
         self._append((FIELD_STRING, self._orientSocket.serialization_type))
         self._append((FIELD_BOOLEAN, self._request_token))
         self._append((FIELD_BOOLEAN, True))  # support-push
         self._append((FIELD_BOOLEAN, True))  # collect-stats
-
         self._append((FIELD_STRING, self._user))
         self._append((FIELD_STRING, self._pass))
 

@@ -17,7 +17,9 @@
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
 import os
+import sys
 from .exceptions import PyOrientConnectionException, PyOrientDatabaseException
+from pyorient.otypes import OrientRecordLink
 
 
 def is_debug_active():
@@ -50,3 +52,56 @@ def need_db_opened(wrap):
             raise PyOrientDatabaseException("You must have an opened database to issue this command", [])
         return wrap(*args, **kwargs)
     return wrap_function
+
+
+def parse_cluster_id(cluster_id):
+    try:
+        if isinstance(cluster_id, str):
+            pass
+        elif isinstance(cluster_id, int):
+            cluster_id = str(cluster_id)
+        elif isinstance(cluster_id, bytes):
+            cluster_id = cluster_id.decode("utf-8")
+        elif isinstance(cluster_id, OrientRecordLink):
+            cluster_id = cluster_id.get()
+
+        _cluster_id, _position = cluster_id.split(':')
+        if _cluster_id[0] == '#':
+            _cluster_id = _cluster_id[1:]
+    except (AttributeError, ValueError):
+        # String but with no ":"
+        # so treat it as one param
+        _cluster_id = cluster_id
+    return _cluster_id
+
+
+def parse_cluster_position(_cluster_position):
+    try:
+        if isinstance(_cluster_position, str):
+            pass
+        elif isinstance(_cluster_position, int):
+            _cluster_position = str(_cluster_position)
+        elif isinstance(_cluster_position, bytes):
+            _cluster_position = _cluster_position.decode("utf-8")
+        elif isinstance(_cluster_position, OrientRecordLink):
+            _cluster_position = _cluster_position.get()
+
+        _cluster, _position = _cluster_position.split(':')
+    except (AttributeError, ValueError):
+        # String but with no ":"
+        # so treat it as one param
+        _position = _cluster_position
+    return _position
+
+
+# Unicode methods
+#def u(x):
+#    return x
+
+
+#def to_str(x):
+#    return str(x)
+
+
+#def to_unicode(x):
+#    return str(x)

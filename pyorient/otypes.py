@@ -113,6 +113,24 @@ class OrientRecord(object):
             self.__o_class = kwargs.get('__o_class', None)
 
 
+class OrientRecordLink(object):
+    def __init__(self, record_link):
+        # Initialize attributes with default values
+        cid, pos = record_link.split(":")
+        self.__link = record_link
+        self.clusterID = cid
+        self.recordPosition = pos
+
+    def __str__(self):
+        return self.get_hash()
+
+    def get(self):
+        return self.__link
+
+    def get_hash(self):
+        return "#%s" % self.__link
+
+
 class OrientVersion(object):
     def __init__(self, release):
         """
