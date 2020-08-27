@@ -36,5 +36,4 @@ How to contribute
 - Make your changes
 - Add tests for it. This is important so I don't break it in a future version unintentionally
 - Send me a pull request *(pull request to master will be rejected)*
-- ???
 - PROFIT
