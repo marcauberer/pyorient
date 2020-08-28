@@ -17,8 +17,8 @@
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
 from .base import BaseMessage
-from ..constants import RECORD_TYPE_DOCUMENT, FIELD_BYTE, FIELD_INT, FIELD_LONG, FIELD_SHORT, FIELD_BOOLEAN,\
-    FIELD_STRING, RECORD_CREATE_OP, RECORD_UPDATE_OP, RECORD_TYPES
+from ..constants import RECORD_TYPE_DOCUMENT, FIELD_BYTE, FIELD_BYTES, FIELD_INT, FIELD_LONG, FIELD_SHORT, \
+    FIELD_BOOLEAN, FIELD_STRING, RECORD_CREATE_OP, RECORD_LOAD_OP, RECORD_UPDATE_OP, RECORD_DELETE_OP, RECORD_TYPES
 from ..exceptions import PyOrientConnectionException, PyOrientBadMethodCallException
 from ..otypes import OrientRecord
 from ..utils import need_db_opened, parse_cluster_id, parse_cluster_position
@@ -143,6 +143,111 @@ class RecordCreateMessage(BaseMessage):
 
     def set_mode_async(self):
         self._mode_async = 1
+        return self
+
+
+#
+# RECORD LOAD
+#
+# Load a record by RecordID, according to a fetch plan
+#
+# Request: (cluster-id:short)(cluster-position:long)
+#   (fetch-plan:string)(ignore-cache:byte)(load-tombstones:byte)
+# Response: [(payload-status:byte)[(record-content:bytes)
+#   (record-version:int)(record-type:byte)]*]+
+
+#
+# fetch-plan, the fetch plan to use or an empty string
+# ignore-cache, tells if the cache must be ignored: 1 = ignore the cache,
+# 0 = not ignore. since protocol v.9 (introduced in release 1.0rc9)
+# load-tombstones, the flag which indicates whether information about
+# deleted record should be loaded. The flag is applied only to auto-sharded
+# storage and ignored otherwise.
+#
+# payload-status can be:
+# 0: no records remain to be fetched
+# 1: a record is returned as resultSet
+# 2: a record is returned as pre-fetched to be loaded in client's cache only.
+# It's not part of the result set but the client knows that it's available for
+# later access. This value is not currently used.
+#
+# record-type is
+# 'b': raw bytes
+# 'f': flat data
+# 'd': document
+#
+class RecordLoadMessage(BaseMessage):
+    def __init__(self, _orient_socket):
+        super(RecordLoadMessage, self).__init__(_orient_socket)
+
+        # Initialize attributes with default values
+        self._record_id = ''
+        self._fetch_plan = '*:0'
+        self.cached_records = []
+        self._append((FIELD_BYTE, RECORD_LOAD_OP))
+
+    @need_db_opened
+    def prepare(self, params=None):
+        try:
+            self._record_id = params[0]  # mandatory if not passed with set
+            self._fetch_plan = params[1]  # user choice if present
+            # callback function use to operate
+            # over the async fetched records
+            self.set_callback(params[2])
+        except IndexError:
+            # Use default for non existent indexes
+            pass
+
+        try:
+            _cluster = parse_cluster_id(self._record_id)
+            _position = parse_cluster_position(self._record_id)
+        except ValueError:
+            raise PyOrientBadMethodCallException("Not valid Rid to load: " + self._record_id, [])
+
+        # Append header fields
+        self._append((FIELD_SHORT, int(_cluster)))
+        self._append((FIELD_LONG, int(_position)))
+        self._append((FIELD_STRING, self._fetch_plan))
+        self._append((FIELD_BYTE, "0"))
+        self._append((FIELD_BYTE, "0"))
+
+        return super(RecordLoadMessage, self).prepare()
+
+    def fetch_response(self):
+        self._append(FIELD_BYTE)
+        _status = super(RecordLoadMessage, self).fetch_response()[0]
+
+        _record = OrientRecord()
+        if _status != 0:
+            self._append(FIELD_BYTE)  # record type
+            self._append(FIELD_INT)  # record version
+            self._append(FIELD_BYTES)  # record content
+            rec_position = 2
+
+            __record = super(RecordLoadMessage, self).fetch_response(True)
+            # bug in orientdb csv serialization in snapshot 2.0,
+            # strip trailing spaces
+            class_name, data = self.get_serializer().decode(__record[rec_position].rstrip())
+            self._read_async_records()  # get cache
+
+            _record = OrientRecord(dict(__o_storage=data, __o_class=class_name, __version=__record[1],
+                                        __rid=self._record_id))
+
+        return _record
+
+    def set_record_id(self, _record_id):
+        self._record_id = _record_id
+        return self
+
+    def set_fetch_plan(self, _fetch_plan):
+        self._fetch_plan = _fetch_plan
+        return self
+
+    def set_callback(self, func):
+        if hasattr(func, '__call__'):
+            self._callback = func
+        else:
+            raise PyOrientBadMethodCallException(func + " is not a callable function", [])
         return self
 
 
@@ -307,3 +412,78 @@ class RecordUpdateMessage(BaseMessage):
         return self
 
 
+#
+# RECORD DELETE
+#
+# Delete a record by its RecordID. During the optimistic transaction
+# the record will be deleted only if the versions match. Returns true
+# if has been deleted otherwise false.
+#
+# Request: (cluster-id:short)(cluster-position:long)(record-version:int)(mode:byte)
+# Response: (payload-status:byte)
+#
+# mode is:
+# 0 = synchronous (default mode waits for the answer)
+# 1 = asynchronous (don't need an answer)
+#
+# payload-status returns 1 if the record has been deleted, otherwise 0.
+# If the record didn't exist 0 is returned.
+#
+class RecordDeleteMessage(BaseMessage):
+    def __init__(self, _orient_socket):
+        super(RecordDeleteMessage, self).__init__(_orient_socket)
+
+        # Initialize attributes with default values
+        self._cluster_id = b'0'
+        self._cluster_position = b'0'
+        self._record_version = -1
+        self._mode_async = 0  # means synchronous mode
+        self._record_type = RECORD_TYPE_DOCUMENT  # only needed for transactions
+        self._append((FIELD_BYTE, RECORD_DELETE_OP))
+
+    @need_db_opened
+    def prepare(self, params=None):
+        try:
+            self.set_cluster_id(params[0])
+            self.set_cluster_position(params[1])
+            self._record_version = params[2]  # optional
+            self._mode_async = params[3]  # optional
+        except IndexError:
+            # Use default for non existent indexes
+            pass
+
+        # Append header fields
+        self._append((FIELD_SHORT, int(self._cluster_id)))
+        self._append((FIELD_LONG, int(self._cluster_position)))
+        self._append((FIELD_INT, int(self._record_version)))
+        self._append((FIELD_BOOLEAN, self._mode_async))
+
+        return super(RecordDeleteMessage, self).prepare()
+
+    def fetch_response(self):
+        # skip execution in case of transaction
+        if self._orientSocket.in_transaction is True:
+            return self
+
+        self._append(FIELD_BOOLEAN)  # payload-status
+        return super(RecordDeleteMessage, self).fetch_response()[0]
+
+    def set_record_version(self, _record_version):
+        self._record_version = _record_version
+        return self
+
+    def set_cluster_id(self, cluster_id):
+        self._cluster_id = parse_cluster_id(cluster_id)
+        return self
+
+    def set_cluster_position(self, _cluster_position):
+        self._cluster_position = parse_cluster_position(_cluster_position)
+        return self
+
+    def set_record_type(self, _record_type):
+        self._record_type = _record_type
+        return self
+
+    def set_mode_async(self):
+        self._mode_async = 1
+        return self
