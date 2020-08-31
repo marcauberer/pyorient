@@ -122,18 +122,30 @@ class RecordCreateMessage(BaseMessage):
         return self._record_content  # [ self._record_content, _changes ]
 
     def set_data_segment_id(self, data_segment_id):
+        """
+        Setter method for the data segment id
+        """
         self._data_segment_id = data_segment_id
         return self
 
     def set_cluster_id(self, cluster_id):
+        """
+        Setter method for the cluster id
+        """
         self._cluster_id = parse_cluster_id(cluster_id)
         return self
 
     def set_record_content(self, record):
+        """
+        Setter method for the record content
+        """
         self._record_content = record
         return self
 
     def set_record_type(self, record_type):
+        """
+        Setter method for the record type
+        """
         if record_type in RECORD_TYPES:
             # user choice storage if present
             self._record_type = record_type
@@ -142,6 +154,9 @@ class RecordCreateMessage(BaseMessage):
         return self
 
     def set_mode_async(self):
+        """
+        Setter method for the asynchronous mode
+        """
         self._mode_async = 1
         return self
 
@@ -236,14 +251,23 @@ class RecordLoadMessage(BaseMessage):
         return _record
 
     def set_record_id(self, _record_id):
+        """
+        Setter method for the record id
+        """
         self._record_id = _record_id
         return self
 
     def set_fetch_plan(self, _fetch_plan):
+        """
+        Setter method for the fetch plan
+        """
         self._fetch_plan = _fetch_plan
         return self
 
     def set_callback(self, func):
+        """
+        Setter method for the callback function, which will be called when the record is available
+        """
         if hasattr(func, '__call__'):
             self._callback = func
         else:
@@ -376,22 +400,38 @@ class RecordUpdateMessage(BaseMessage):
         return [self._record_content, chng, _changes]
 
     def set_data_segment_id(self, data_segment_id):
+        """
+        Setter method for the data segment id
+        """
         self._data_segment_id = data_segment_id
         return self
 
     def set_cluster_id(self, cluster_id):
+
+        """
+        Setter method for the cluster id
+        """
         self._cluster_id = parse_cluster_id(cluster_id)
         return self
 
     def set_cluster_position(self, _cluster_position):
+        """
+        Setter method for the cluster position
+        """
         self._cluster_position = parse_cluster_position(_cluster_position)
         return self
 
     def set_record_content(self, record):
+        """
+        Setter method for the content of the record
+        """
         self._record_content = record
         return self
 
     def set_record_type(self, record_type):
+        """
+        Setter method for the record type
+        """
         if record_type in RECORD_TYPES:
             # user choice storage if present
             self._record_type = record_type
@@ -400,14 +440,23 @@ class RecordUpdateMessage(BaseMessage):
         return self
 
     def set_mode_async(self):
+        """
+        Setter method for the asynchronous mode
+        """
         self._mode_async = 1
         return self
 
     def set_record_version_policy(self, _policy):
+        """
+        Setter method for the record version policy
+        """
         self._record_version_policy = _policy
         return self
 
     def set_no_update_content(self):
+        """
+        Setter method for enabling/disabling updating the record
+        """
         self._update_content = False
         return self
 
@@ -469,21 +518,36 @@ class RecordDeleteMessage(BaseMessage):
         return super(RecordDeleteMessage, self).fetch_response()[0]
 
     def set_record_version(self, _record_version):
+        """
+        Setter method for the record version
+        """
         self._record_version = _record_version
         return self
 
     def set_cluster_id(self, cluster_id):
+        """
+        Setter method for the cluster id
+        """
         self._cluster_id = parse_cluster_id(cluster_id)
         return self
 
     def set_cluster_position(self, _cluster_position):
+        """
+        Setter method for the cluster position
+        """
         self._cluster_position = parse_cluster_position(_cluster_position)
         return self
 
     def set_record_type(self, _record_type):
+        """
+        Setter method for the record type
+        """
         self._record_type = _record_type
         return self
 
     def set_mode_async(self):
+        """
+        Setter method for the asynchronous mode
+        """
         self._mode_async = 1
         return self
