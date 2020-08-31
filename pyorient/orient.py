@@ -41,7 +41,7 @@ class OrientSocket(object):
         self.connected = False
         self.host = host
         self.port = port
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.protocol = -1
         self.session_id = -1
         self.auth_token = b''
@@ -54,7 +54,7 @@ class OrientSocket(object):
         # Establish the socket connection and return the connected socket
         if not self.connected:
             self.connect()
-        return self._socket
+        return self.socket
 
     def connect(self):
         """
@@ -64,14 +64,14 @@ class OrientSocket(object):
         dlog("Trying to connect ...")
         try:
             # Set timeout and connect socket to the provided host and port
-            self._socket.settimeout(SOCK_CONN_TIMEOUT)
-            self._socket.connect((self.host, self.port))
+            self.socket.settimeout(SOCK_CONN_TIMEOUT)
+            self.socket.connect((self.host, self.port))
 
             # Read short value from server to check, if the server is working correctly
-            _answer = self._socket.recv(FIELD_SHORT['bytes'])
+            _answer = self.socket.recv(FIELD_SHORT['bytes'])
             if len(_answer) != 2:  # A short is 2 bytes long
                 # Close the socket and throw exception if the server is not working correctly
-                self._socket.close()
+                self.socket.close()
                 raise PyOrientConnectionPoolException("Server sent empty string", [])
 
             # Unpack protocol version
@@ -93,7 +93,7 @@ class OrientSocket(object):
         Close the connection to the database server
         """
         # Stop connection
-        self._socket.close()
+        self.socket.close()
         self.connected = False
         # Reset all attributes to default
         self.host = ''
@@ -106,11 +106,11 @@ class OrientSocket(object):
         # https://docs.python.org/2/howto/sockets.html#when-sockets-die
         try:
             # As soon as the connection crashes, this raises an exception
-            return select.select([], [self._socket], [self._socket], server_conn_timeout)
+            return select.select([], [self.socket], [self.socket], server_conn_timeout)
         except select.error as e:
             # Connection crash, try to shutdown connection gracefully
             self.connected = False
-            self._socket.close()
+            self.socket.close()
             raise e
 
     def write(self, buff):
@@ -119,12 +119,12 @@ class OrientSocket(object):
 
         if not in_error and ready_to_write:
             # Socket works -> send all data
-            self._socket.sendall(buff)
+            self.socket.sendall(buff)
             return len(buff)
         else:
             # Socket does not work -> close and raise exception
             self.connected = False
-            self._socket.close()
+            self.socket.close()
             raise PyOrientConnectionException("Socket error", [])
 
     def read(self, _len_to_read):
@@ -136,10 +136,10 @@ class OrientSocket(object):
                 buf = bytearray(_len_to_read)
                 view = memoryview(buf)
                 while _len_to_read:
-                    n_bytes = self._socket.recv_into(view, _len_to_read)
+                    n_bytes = self.socket.recv_into(view, _len_to_read)
                     # Nothing read -> Server went down
                     if not n_bytes:
-                        self._socket.close()
+                        self.socket.close()
                         # TODO: Implement re-connection to another listener
                         raise PyOrientConnectionException("Server seems to went down", [])
 
@@ -151,7 +151,7 @@ class OrientSocket(object):
 
             # Close connection, if error(s) occurred
             if len(in_error) > 0:
-                self._socket.close()
+                self.socket.close()
                 raise PyOrientConnectionException("Socket error", [])
 
 
