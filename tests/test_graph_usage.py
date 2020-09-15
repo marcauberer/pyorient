@@ -32,16 +32,21 @@ class GraphUsageTestCase(unittest.TestCase):
         self.cluster_info = None
 
     def setUp(self):
+        # Setup client
         self.client = pyorient.OrientDB("localhost", 2424)
         self.client.connect("root", "root")
         print("Session token: " + str(self.client.get_session_token()))
+        # Open database
+        if not self.client.db_exists("test", pyorient.STORAGE_TYPE_PLOCAL):
+            self.client.db_create("test", pyorient.DB_TYPE_GRAPH, pyorient.STORAGE_TYPE_PLOCAL)
+        self.db = self.client.db_open("test", "root", "root")
         # TODO: Incomplete method
 
     def testGraph(self):
         # Create Vertex 'Animal'
-        #self.client.command("create class Animal extends V")
+        self.client.command("create class Animal extends V")
         # Insert a value
-        #self.client.command("insert into Animal set name = 'rat', specie = 'rodent'")
+        self.client.command("insert into Animal set name = 'rat', specie = 'rodent'")
         self.client.close()
 
 

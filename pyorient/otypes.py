@@ -131,6 +131,67 @@ class OrientRecordLink(object):
         return "#%s" % self.__link
 
 
+class OrientCluster(object):
+    def __init__(self, name, cluster_id, cluster_type=None, segment=None):
+        """
+        Information regarding a Cluster on the Orient Server
+        :param name: str name of the cluster
+        :param cluster_id: int id of the cluster
+        :param cluster_type: cluster type (only for version <24 of the protocol)
+        :param segment: cluster segment (only for version <24 of the protocol)
+        """
+        # Initialize attributes with default values
+        self.name = name
+        self.id = cluster_id
+        self.type = cluster_type
+        self.segment = segment
+
+    def __str__(self):
+        return "%s: %d" % (self.name, self.id)
+
+    def __eq__(self, other):
+        return self.name == other.name and self.id == other.id
+
+    def __ne__(self, other):
+        return self.name != other.name or self.id != other.id
+
+
+class OrientNode(object):
+    def __init__(self, node_dict=None):
+        """
+        Represent a server node in a multi clusered configuration
+        TODO: extends this object with different listeners if we're going to support in the driver an abstarction of the HTTP protocol, for now we are not interested in that
+        :param node_dict: dict with starting configs (usaully from a db_open, db_reload record response)
+        """
+        # Initialize attributes with default values
+        self.name = None
+        self.id = None
+        self.started_on = None  #: datetime object the node was started
+        self.host = None  #: binary listener host
+        self.port = None  #: binary lister port
+
+        if node_dict is not None:
+            self._parse_dict(node_dict)
+
+    def _parse_dict(self, node_dict):
+        self.id = node_dict['id']
+        self.name = node_dict['name']
+        self.started_on = node_dict['startedOn']
+        binary_listener = None
+        for listener in node_dict['listeners']:
+            if listener['protocol'] == 'ONetworkProtocolBinary':
+                binary_listener = listener
+                break
+
+        if binary_listener:
+            listen = binary_listener['listen'].split(':')
+            self.host = listen[0]
+            self.port = listen[1]
+
+    def __str__(self):
+        return self.name
+
+
 class OrientVersion(object):
     def __init__(self, release):
         """
