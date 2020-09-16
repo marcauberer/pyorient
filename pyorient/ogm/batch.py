@@ -1,8 +1,6 @@
 from .broker import get_broker
 from .commands import VertexCommand
-
 from .vertex import VertexVector
-
 import re
 import string
 
