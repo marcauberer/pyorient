@@ -24,7 +24,8 @@ import select
 # Local imports
 from .serializations import OrientSerialization
 from .utils import dlog
-from .constants import SOCK_CONN_TIMEOUT, FIELD_SHORT, SUPPORTED_PROTOCOL, ERROR_ON_NEWER_PROTOCOL, MESSAGES
+from .constants import SOCK_CONN_TIMEOUT, FIELD_SHORT, SUPPORTED_PROTOCOL, ERROR_ON_NEWER_PROTOCOL, MESSAGES,\
+    DB_TYPE_DOCUMENT, STORAGE_TYPE_PLOCAL, TYPE_MAP, QUERY_GREMLIN, QUERY_CMD, QUERY_SCRIPT, QUERY_SYNC, QUERY_ASYNC
 from .exceptions import PyOrientConnectionPoolException, PyOrientWrongProtocolVersionException,\
     PyOrientConnectionException, PyOrientBadMethodCallException
 
@@ -212,6 +213,7 @@ class OrientDB(object):
     def get_class_position(self, cluster_name):
         """
         Get the cluster position (id) by the name of the cluster
+
         :param cluster_name: cluster name
         :return: int cluster id
         """
@@ -220,6 +222,7 @@ class OrientDB(object):
     def get_class_name(self, position):
         """
         Get the cluster name by the position (id) of the cluster
+
         :param position: cluster id
         :return: string cluster name
         """
@@ -228,6 +231,7 @@ class OrientDB(object):
     def set_session_token(self, enable_token_authentication):
         """
         For using token authentication, please pass 'true'
+
         :param enable_token_authentication: bool
         """
         self._auth_token = enable_token_authentication
@@ -253,16 +257,172 @@ class OrientDB(object):
         return self.get_message("ConnectMessage").prepare((user, password, client_id, self._serialization_type))\
             .send().fetch_response()
 
+    def db_count_records(self):
+        """
+        Returns the number of records in the currently opened database
+
+        :return: long
+        Usage::
+            >>> from pyorient import OrientDB
+            >>> client = OrientDB("localhost", 2424)
+            >>> client.db_open('MyDatabase', 'admin', 'admin')
+            >>> client.db_count_records()
+            7872
+        """
+        return self.get_message("DbCountRecordsMessage").prepare(()).send().fetch_response()
+
+    def db_create(self, name, type=DB_TYPE_DOCUMENT, storage=STORAGE_TYPE_PLOCAL):
+        """
+        Creates a database on the OrientDB instance
+
+        :param name: the name of the database to create. Example: "MyDatabase".
+        :param type: the type of the database to create. Can be either document or graph. [default: DB_TYPE_DOCUMENT]
+        :param storage:  specifies the storage type of the database to create. It can be one of the supported types [default: STORAGE_TYPE_PLOCAL]:
+            - STORAGE_TYPE_PLOCAL - persistent database
+            - STORAGE_TYPE_MEMORY - volatile database
+        :return: None
+        Usage::
+            >>> from pyorient import OrientDB
+            >>> client = OrientDB("localhost", 2424)
+            >>> client.connect('root', 'root')
+            >>> client.db_create('test')
+        """
+        self.get_message("DbCreateMessage").prepare((name, type, storage)).send().fetch_response()
+
+    def db_drop(self, name, type=STORAGE_TYPE_PLOCAL):
+        """
+        Deletes a database from the OrientDB instance
+        This returns an Exception if the database does not exist on the server.
+
+        :param name: the name of the database to drop. Example: "MyDatabase".
+        :param type: the type of the database to drop. Can be either document or graph. [default: DB_TYPE_DOCUMENT]
+        :return: None
+        """
+        self.get_message("DbDropMessage").prepare((name, type)).send().fetch_response()
+
+    def db_exists(self, name, type=STORAGE_TYPE_PLOCAL):
+        """
+        Checks if a database exists on the OrientDB instance
+
+        :param name: the name of the database to create. Example: "MyDatabase".
+        :param type: the type of the database to create. Can be either document or graph. [default: DB_TYPE_DOCUMENT]
+        :return: bool
+        """
+        return self.get_message("DbExistsMessage").prepare((name, type)).send().fetch_response()
+
+    def db_open(self, name, user, password, type=DB_TYPE_DOCUMENT, client_id=''):
+        """
+        Opens a database on the OrientDB instance
+        Returns the session id to being reused for all the next calls and the list of configured clusters
+
+        :param name: database name as string. Example: "demo"
+        :param user: username as string
+        :param password: password as string
+        :param type: string, can be DB_TYPE_DOCUMENT or DB_TYPE_GRAPH
+        :param client_id: Can be null for clients. In clustered configuration is the distributed node
+        :return: an array of :class:`OrientCluster <pyorient.types.OrientCluster>` object
+        Usage::
+          >>> import pyorient
+          >>> orient = pyorient.OrientDB('localhost', 2424)
+          >>> orient.db_open('asd', 'admin', 'admin')
+        """
+        info, clusters, nodes = self.get_message("DbOpenMessage").prepare((name, user, password, type, client_id)).send().fetch_response()
+
+        self.version = info
+        self.clusters = clusters
+        self._reload_clusters()
+        self.nodes = nodes
+        self.update_properties()
+
+        return self.clusters
+
+    def db_reload(self):
+        """
+        Reloads current connected database
+
+        :return: renewed array of :class:`OrientCluster <pyorient.types.OrientCluster>`
+        """
+        self.clusters = self.get_message("DbReloadMessage").prepare([]).send().fetch_response()
+        self._reload_clusters()
+        self.update_properties()
+        return self.clusters
+
+    def update_properties(self):
+        """
+        This method fetches the global properties from the server. The properties are used
+        for deserializing based on property index if using binary serialization. This method
+        should be called after any manual command that may result in modifications to the
+        properties table, for example, "Create property ..." or "Create class ..." followed
+        by "Create vertex set ..."
+        """
+        if self._serialization_type == OrientSerialization.Binary:
+            self._connection._props = {x['id']: [x['name'], TYPE_MAP[x['type']]] for x in
+                                       self.command("select from #0:1")[0].oRecordData['globalProperties']}
+
+    def shutdown(self, *args):
+        """
+        Stops the OrientDb instance. Requires special permissions
+        """
+        return self.get_message("ShutdownMessage").prepare(args).send().fetch_response()
+
+    # - # - # - # - # - # - # - # - # - # - # - # - Database Commands # - # - # - # - # - # - # - # - # - # - # - # - #
+
+    def gremlin(self, *args):
+        return self.get_message("CommandMessage").prepare((QUERY_GREMLIN,) + args).send().fetch_response()
+
+    def command(self, *args):
+        return self.get_message("CommandMessage").prepare((QUERY_CMD,) + args).send().fetch_response()
+
+    def batch(self, *args):
+        return self.get_message("CommandMessage").prepare((QUERY_SCRIPT,) + args).send().fetch_response()
+
+    def query(self, *args):
+        return self.get_message("CommandMessage").prepare((QUERY_SYNC,) + args).send().fetch_response()
+
+    def query_async(self, *args):
+        return self.get_message("CommandMessage").prepare((QUERY_ASYNC,) + args).send().fetch_response()
+
+    def data_cluster_add(self, *args):
+        return self.get_message("DataClusterAddMessage").prepare(args).send().fetch_response()
+
+    def data_cluster_count(self, *args):
+        return self.get_message("DataClusterCountMessage").prepare(args).send().fetch_response()
+
+    def data_cluster_data_range(self, *args):
+        return self.get_message("DataClusterDataRangeMessage").prepare(args).send().fetch_response()
+
+    def data_cluster_drop(self, *args):
+        return self.get_message("DataClusterDropMessage").prepare(args).send().fetch_response()
+
+    def db_close(self, *args):
+        return self.get_message("DbCloseMessage").prepare(args).send().fetch_response()
+
+    def db_size(self, *args):
+        return self.get_message("DbSizeMessage").prepare(args).send().fetch_response()
+
+    def db_list(self, *args):
+        return self.get_message("DbListMessage").prepare(args).send().fetch_response()
+
+    def record_create(self, *args):
+        return self.get_message("RecordCreateMessage").prepare(args).send().fetch_response()
+
+    def record_delete(self, *args):
+        return self.get_message("RecordDeleteMessage").prepare(args).send().fetch_response()
+
+    def record_load(self, *args):
+        return self.get_message("RecordLoadMessage").prepare(args).send().fetch_response()
+
+    def record_update(self, *args):
+        return self.get_message("RecordUpdateMessage").prepare(args).send().fetch_response()
+
+    def tx_commit(self):
+        return self.get_message("TxCommitMessage")
+
     def get_message(self, command=None):
         try:
             if command is not None and MESSAGES[command]:
                 # Import class with the class name from the messages dictionary
-                _msg = __import__(
-                    MESSAGES[command],
-                    globals(),
-                    locals(),
-                    [command]
-                )
+                _msg = __import__(MESSAGES[command], globals(), locals(), [command])
 
                 # Get the right instance from import list
                 _Message = getattr(_msg, command)
@@ -278,8 +438,7 @@ class OrientDB(object):
             self.close()
             raise PyOrientBadMethodCallException("Unable to find command " + str(e), [])
 
-    @staticmethod
-    def _push_received(command_id, payload):
+    def _push_received(self, command_id, payload):
         # REQUEST_PUSH_RECORD	        79
         # REQUEST_PUSH_DISTRIB_CONFIG	80
         # REQUEST_PUSH_LIVE_QUERY	    81

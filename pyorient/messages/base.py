@@ -21,9 +21,11 @@ import sys
 
 from ..exceptions import PyOrientBadMethodCallException, PyOrientCommandException, PyOrientNullRecordException
 from ..utils import is_debug_active
+from ..otypes import OrientRecord, OrientRecordLink, OrientNode
 from ..orient import OrientSocket
 from ..serializations import OrientSerialization
-from ..constants import FIELD_INT, FIELD_STRING, INT, STRING, STRINGS, BYTE, BYTES, BOOLEAN, SHORT, LONG
+from ..constants import FIELD_INT, FIELD_STRING, FIELD_BYTE, FIELD_BOOLEAN, INT, STRING, STRINGS, BYTE, BYTES, BOOLEAN,\
+    SHORT, LONG, CHAR, LINK, RECORD, FIELD_SHORT, FIELD_TYPE_LINK, FIELD_RECORD
 from ..hexdump import hexdump
 
 # Initialize global variable
@@ -118,16 +120,28 @@ class BaseMessage(object):
         return self
 
     def get_session_token(self):
-        pass
+        """
+        Retrieve the session token to reuse after
+        :return:
+        """
+        return self._auth_token
 
     def _update_socket_id(self):
-        pass
+        """
+        Force update of socket id from inside the class
+        """
+        self._orientSocket.session_id = self._session_id
+        return self
 
     def _update_socket_token(self):
-        pass
+        """
+        Force update of socket token from inside the class
+        """
+        self._orientSocket.auth_token = self._auth_token
+        return self
 
     def _reset_fields_definition(self):
-        pass
+        self._fields_definition = []
 
     def prepare(self, *args):
         # Session id
@@ -147,13 +161,92 @@ class BaseMessage(object):
         return self._protocol
 
     def _decode_header(self):
-        pass
+        self._header = [self._decode_field(FIELD_BYTE), self._decode_field(FIELD_INT)]
+
+        # decode message errors and raise an exception
+        if self._header[0] == 1:
+            # Parse the error
+            exception_class = b''
+            exception_message = b''
+
+            more = self._decode_field(FIELD_BOOLEAN)
+
+            while more:
+                # read num bytes by the field definition
+                exception_class += self._decode_field(FIELD_STRING)
+                exception_message += self._decode_field(FIELD_STRING)
+                more = self._decode_field(FIELD_BOOLEAN)
+
+                if self.get_protocol() > 18:  # > 18 1.6-snapshot
+                    # read serialized version of exception thrown on server side
+                    # useful only for java clients
+                    serialized_exception = self._decode_field(FIELD_STRING)
+                    # trash
+                    del serialized_exception
+            raise PyOrientCommandException(exception_class.decode('utf8'), [exception_message.decode('utf8')])
+        elif self._header[0] == 3:
+            # Push notification, Node cluster changed
+            # TODO: UNTESTED CODE!!!
+            # FIELD_BYTE (OChannelBinaryProtocol.PUSH_DATA);  # WRITE 3
+            # FIELD_INT (Integer.MIN_VALUE);  # SESSION ID = 2^-31
+            # 80: \x50 Request Push 1 byte: Push command id
+            push_command_id = self._decode_field(FIELD_BYTE)
+            push_message = self._decode_field(FIELD_STRING)
+            _, payload = self.get_serializer().decode(push_message)
+            if self._push_callback:
+                self._push_callback(push_command_id, payload)
+
+            end_flag = self._decode_field(FIELD_BYTE)
+
+            # this flag can be set more than once
+            while end_flag == 3:
+                self._decode_field(FIELD_INT)  # FAKE SESSION ID = 2^-31
+                op_code = self._decode_field(FIELD_BYTE)  # 80: 0x50 Request Push
+
+                # REQUEST_PUSH_RECORD	        79
+                # REQUEST_PUSH_DISTRIB_CONFIG	80
+                # REQUEST_PUSH_LIVE_QUERY	    81
+                if op_code == 80:
+                    # for node in
+                    payload = self.get_serializer().decode(self._decode_field(FIELD_STRING))  # Json of new cluster cfg
+
+                    # reset the nodelist
+                    self._node_list = []
+                    for node in payload['members']:
+                        self._node_list.append(OrientNode(node))
+
+                end_flag = self._decode_field(FIELD_BYTE)
+
+            # Try to set the new session id???
+            self._header[1] = self._decode_field(FIELD_INT)  # REAL SESSION ID
+            pass
+
+        from .connection import ConnectMessage
+        from .database import DbOpenMessage
+        """
+        #  Token authentication handling
+        #  we must recognize ConnectMessage and DbOpenMessage messages
+            TODO: change this check avoiding cross import,
+            importing a subclass in a super class is bad
+        """
+        if not isinstance(self, (ConnectMessage, DbOpenMessage)) and self._request_token is True:
+            token_refresh = self._decode_field(FIELD_STRING)
+            if token_refresh != b'':
+                self._auth_token = token_refresh
+                self._update_socket_token()
 
     def _decode_body(self):
-        pass
+        # read body
+        for field in self._fields_definition:
+            self._body.append(self._decode_field(field))
+
+        # clear field stack
+        self._reset_fields_definition()
+        return self
 
     def _decode_all(self):
-        pass
+        self._decode_header()
+        self._decode_body()
 
     def fetch_response(self, *_continue):
         """
@@ -193,7 +286,8 @@ class BaseMessage(object):
         return self
 
     def __str__(self):
-        pass
+        return "\n_output_buffer: \n" + hexdump(self._output_buffer, 'return')\
+               + "\n\n_input_buffer: \n" + hexdump(self._input_buffer, 'return')
 
     def send(self):
         if self._orientSocket.in_transaction is False:
@@ -240,10 +334,120 @@ class BaseMessage(object):
         return _content
 
     def _decode_field(self, _type):
-        pass
+        _value = b''
+        # read buffer length and decode value by field definition
+        if _type['bytes'] is not None:
+            _value = self._orientSocket.read(_type['bytes'])
+        # if it is a string decode first 4 Bytes as INT
+        # and try to read the buffer
+        if _type['type'] == STRING or _type['type'] == BYTES:
+            _len = struct.unpack('!i', _value)[0]
+            if _len == -1 or _len == 0:
+                _decoded_string = b''
+            else:
+                _decoded_string = self._orientSocket.read(_len)
+
+            self._input_buffer += _value
+            self._input_buffer += _decoded_string
+
+            return _decoded_string
+        elif _type['type'] == RECORD:
+            # record_type
+            record_type = self._decode_field(_type['struct'][0])
+
+            rid = "#" + str(self._decode_field(_type['struct'][1]))
+            rid += ":" + str(self._decode_field(_type['struct'][2]))
+
+            version = self._decode_field(_type['struct'][3])
+            content = self._decode_field(_type['struct'][4])
+            return {'rid': rid, 'record_type': record_type, 'content': content, 'version': version}
+        elif _type['type'] == LINK:
+            rid = "#" + str(self._decode_field(_type['struct'][0]))
+            rid += ":" + str(self._decode_field(_type['struct'][1]))
+            return rid
+        else:
+            self._input_buffer += _value
+
+            if _type['type'] == BOOLEAN:
+                return ord(_value) == 1
+            elif _type['type'] == BYTE:
+                return ord(_value)
+            elif _type['type'] == CHAR:
+                return _value
+            elif _type['type'] == SHORT:
+                return struct.unpack('!h', _value)[0]
+            elif _type['type'] == INT:
+                return struct.unpack('!i', _value)[0]
+            elif _type['type'] == LONG:
+                return struct.unpack('!q', _value)[0]
 
     def _read_async_records(self):
-        pass
+        """
+        # async-result-type byte as trailing byte of a record can be:
+        # 0: no records remain to be fetched
+        # 1: a record is returned as a result set
+        # 2: a record is returned as pre-fetched to be loaded in client's
+        #       cache only. It's not part of the result set but the client
+        #       knows that it's available for later access
+        """
+        _status = self._decode_field(FIELD_BYTE)  # status
+
+        while _status != 0:
+            try:
+                # if a callback for the cache is not set, raise exception
+                if not hasattr(self._callback, '__call__'):
+                    raise AttributeError()
+
+                _record = self._read_record()
+
+                if _status == 1:  # async record type
+                    # async_records.append( _record )  # save in async
+                    self._callback(_record)  # save in async
+                elif _status == 2:  # cache
+                    # cached_records.append( _record )  # save in cache
+                    self._callback(_record)  # save in cache
+            except AttributeError:
+                # AttributeError: 'RecordLoadMessage' object has
+                # no attribute '_command_type'
+                raise PyOrientBadMethodCallException(str(self._callback) + " is not a callable function", [])
+            finally:
+                # read new status and flush the debug buffer
+                _status = self._decode_field(FIELD_BYTE)  # status
 
     def _read_record(self):
-        pass
+        """
+        # The format depends if a RID is passed or an entire
+            record with its content.
+        # In case of null record then -2 as short is passed.
+        # In case of RID -3 is passes as short and then the RID:
+            (-3:short)(cluster-id:short)(cluster-position:long).
+        # In case of record:
+            (0:short)(record-type:byte)(cluster-id:short)
+            (cluster-position:long)(record-version:int)(record-content:bytes)
+        :raise: PyOrientNullRecordException
+        :return: OrientRecordLink,OrientRecord
+        """
+        marker = self._decode_field(FIELD_SHORT)  # marker
+
+        if marker is -2:
+            raise PyOrientNullRecordException('NULL Record', [])
+        elif marker is -3:
+            res = OrientRecordLink(self._decode_field(FIELD_TYPE_LINK))
+        else:
+            # read record
+            __res = self._decode_field(FIELD_RECORD)
+
+            if self._orientSocket.serialization_type == OrientSerialization.Binary:
+                class_name, data = self.get_serializer().decode(__res['content'])
+            else:
+                # bug in orientdb csv serialization in snapshot 2.0
+                class_name, data = self.get_serializer().decode(__res['content'].rstrip())
+
+            res = OrientRecord(dict(__o_storage=data, __o_class=class_name,
+                                    __version=__res['version'], __rid=__res['rid']))
+
+        self.dump_streams()  # debug log
+        self._output_buffer = b''
+        self._input_buffer = b''
+
+        return res
