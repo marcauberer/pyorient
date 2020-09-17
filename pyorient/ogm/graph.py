@@ -7,7 +7,6 @@ from .broker import get_broker
 from .query import Query
 from .batch import Batch
 from .commands import VertexCommand, CreateEdgeCommand
-from ..utils import to_unicode
 import pyorient
 from collections import namedtuple
 from os.path import isfile
@@ -496,12 +495,10 @@ class Graph(object):
             self.drop_class(cls, ignore_instances=True)
 
     def create_vertex(self, vertex_cls, **kwargs):
-        result = self.client.command(
-            to_unicode(self.create_vertex_command(vertex_cls, **kwargs)))[0]
+        result = self.client.command(str(self.create_vertex_command(vertex_cls, **kwargs)))[0]
 
         props = result.oRecordData
-        return vertex_cls.from_graph(self, result._rid,
-                                     self.props_from_db[vertex_cls](props))
+        return vertex_cls.from_graph(self, result._rid, self.props_from_db[vertex_cls](props))
 
     def create_vertex_command(self, vertex_cls, **kwargs):
         class_name = vertex_cls.registry_name
@@ -517,7 +514,7 @@ class Graph(object):
 
     def delete_vertex(self, vertex, where=None, limit=None, batch=None):
         # TODO FIXME Parse delete result
-        result = self.client.command(to_unicode(self.delete_vertex_command(vertex, where, limit, batch)))
+        result = self.client.command(str(self.delete_vertex_command(vertex, where, limit, batch)))
 
     def delete_vertex_command(self, vertex, where=None, limit=None, batch=None):
         vertex_clause = getattr(vertex, 'registry_name', None) or vertex
@@ -540,8 +537,7 @@ class Graph(object):
         return VertexCommand(u'DELETE VERTEX {}{}'.format(vertex_clause, delete_clause))
 
     def create_edge(self, edge_cls, from_vertex, to_vertex, **kwargs):
-        result = self.client.command(to_unicode(self.create_edge_command(edge_cls, from_vertex, to_vertex,
-                                                                         **kwargs)))[0]
+        result = self.client.command(str(self.create_edge_command(edge_cls, from_vertex, to_vertex, **kwargs)))[0]
         return self.edge_from_record(result, edge_cls)
 
     def create_edge_command(self, edge_cls, from_vertex, to_vertex, **kwargs):
