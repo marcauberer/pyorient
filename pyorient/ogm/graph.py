@@ -611,8 +611,7 @@ class Graph(object):
         """
         records = self.client.query('SELECT EXPAND( outE({0}) ) FROM {1}'.format(
             ','.join(Graph.coerce_class_names_to_quoted(edge_classes)), self.coerce_class_names(from_)), -1)
-        return [self.edge_from_record(r) for r in records] \
-            if records else []
+        return [self.edge_from_record(r) for r in records] if records else []
 
     def inE(self, to, *edge_classes):
         """Get edges incoming to vertex or class.
@@ -621,8 +620,7 @@ class Graph(object):
         """
         records = self.client.query('SELECT EXPAND( inE({0}) ) FROM {1}'.format(
             ','.join(Graph.coerce_class_names_to_quoted(edge_classes)), self.coerce_class_names(to)), -1)
-        return [self.edge_from_record(r) for r in records] \
-            if records else []
+        return [self.edge_from_record(r) for r in records] if records else []
 
     def bothE(self, from_to, *edge_classes):
         """Get outgoing/incoming edges from/to vertex or class.
@@ -631,8 +629,7 @@ class Graph(object):
         """
         records = self.client.query('SELECT EXPAND( bothE({0}) ) FROM {1}'.format(
             ','.join(Graph.coerce_class_names_to_quoted(edge_classes)), self.coerce_class_names(from_to)), -1)
-        return [self.edge_from_record(r) for r in records] \
-            if records else []
+        return [self.edge_from_record(r) for r in records] if records else []
 
     def out(self, from_, *edge_classes):
         """Get adjacent outgoing vertexes from vertex or class.
@@ -641,8 +638,7 @@ class Graph(object):
         """
         records = self.client.query('SELECT EXPAND( out({0}) ) FROM {1}'.format(
             ','.join(Graph.coerce_class_names_to_quoted(edge_classes)), self.coerce_class_names(from_)), -1)
-        return [self.vertex_from_record(v) for v in records] \
-            if records else []
+        return [self.vertex_from_record(v) for v in records] if records else []
 
     def in_(self, to, *edge_classes):
         """Get adjacent incoming vertexes to vertex or class.
@@ -651,8 +647,7 @@ class Graph(object):
         """
         records = self.client.query('SELECT EXPAND( in({0}) ) FROM {1}'.format(
             ','.join(Graph.coerce_class_names_to_quoted(edge_classes)), self.coerce_class_names(to)), -1)
-        return [self.vertex_from_record(v) for v in records] \
-            if records else []
+        return [self.vertex_from_record(v) for v in records] if records else []
 
     def both(self, from_to, *edge_classes):
         """Get adjacent vertexes to vertex or class.
@@ -661,8 +656,7 @@ class Graph(object):
         """
         records = self.client.query('SELECT EXPAND( both({0}) )FROM {1}'.format(
             ','.join(Graph.coerce_class_names_to_quoted(edge_classes)), self.coerce_class_names(from_to)), -1)
-        return [self.vertex_from_record(v) for v in records] \
-            if records else []
+        return [self.vertex_from_record(v) for v in records] if records else []
 
     # The following mostly intended for internal use
 

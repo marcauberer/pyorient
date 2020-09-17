@@ -429,9 +429,9 @@ class BaseMessage(object):
         """
         marker = self._decode_field(FIELD_SHORT)  # marker
 
-        if marker is -2:
+        if marker == -2:
             raise PyOrientNullRecordException('NULL Record', [])
-        elif marker is -3:
+        elif marker == -3:
             res = OrientRecordLink(self._decode_field(FIELD_TYPE_LINK))
         else:
             # read record
@@ -443,8 +443,8 @@ class BaseMessage(object):
                 # bug in orientdb csv serialization in snapshot 2.0
                 class_name, data = self.get_serializer().decode(__res['content'].rstrip())
 
-            res = OrientRecord(dict(__o_storage=data, __o_class=class_name,
-                                    __version=__res['version'], __rid=__res['rid']))
+            res = OrientRecord(dict(__o_storage=data, __o_class=class_name, __version=__res['version'],
+                                    __rid=__res['rid']))
 
         self.dump_streams()  # debug log
         self._output_buffer = b''
