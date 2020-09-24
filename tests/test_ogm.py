@@ -9,9 +9,7 @@ from pyorient.ogm import Graph, Config
 from pyorient.groovy import GroovyScripts
 
 from pyorient.ogm.declarative import declarative_node, declarative_relationship
-from pyorient.ogm.property import (
-    String, Date, DateTime, Decimal, Double, Integer, EmbeddedMap, EmbeddedSet,
-    Link, UUID)
+from pyorient.ogm.property import String, Date, DateTime, Decimal, Double, Integer, EmbeddedMap, EmbeddedSet, Link, UUID
 from pyorient.ogm.what import expand, in_, out, distinct, sysdate
 
 AnimalsNode = declarative_node()
@@ -75,8 +73,7 @@ class OGMAnimalsTestCaseBase(unittest.TestCase):
 
         rat = g.animals.create(name='rat', specie='rodent')
         mouse = g.animals.create(name='mouse', specie='rodent')
-        queried_rat = g.query(Animal).filter(
-            Animal.name.endswith('at') | (Animal.name == 'tiger')).one()
+        queried_rat = g.query(Animal).filter(Animal.name.endswith('at') | (Animal.name == 'tiger')).one()
 
         assert rat == queried_rat
 
@@ -143,37 +140,37 @@ class OGMAnimalsTestCaseBase(unittest.TestCase):
         # results is currently broken.
         animal_foods = g.animals.query().what(expand(distinct(out(Eats)))).all()
         for food in animal_foods:
-            print(food.name, food.color,
-                  g.query(g.foods.query(name=food.name).what(expand(in_(Eats)))).what(Animal.name).all())
+            print(food.name, food.color, g.query(g.foods.query(name=food.name).what(expand(in_(Eats))))
+                  .what(Animal.name).all())
 
         for food_name, food_color in g.query(Food.name, Food.color):
-            print(food_name, food_color) # 'pea green' # 'cheese yellow'
+            print(food_name, food_color)  # 'pea green' # 'cheese yellow'
 
         # FIXME While it is nicer to use files, parser should be more
         # permissive with whitespace
         g.scripts.add(GroovyScripts.from_string(
-"""
-def get_eaters_of(food_type) {
-    return g.V('@class', 'food').has('name', T.eq, food_type).inE().outV();
-}
-def get_foods_eaten_by(animal) {
-    return g.v(animal).outE('eats').inV()
-}
-def get_colored_eaten_foods(animal, color) {
-    return g.v(animal).outE('eats').inV().has('color', T.eq, color)
-}
-"""))
+            """
+            def get_eaters_of(food_type) {
+                return g.V('@class', 'food').has('name', T.eq, food_type).inE().outV();
+            }
+            def get_foods_eaten_by(animal) {
+                return g.v(animal).outE('eats').inV()
+            }
+            def get_colored_eaten_foods(animal, color) {
+                return g.v(animal).outE('eats').inV().has('color', T.eq, color)
+            }
+            """))
 
         pea_eaters = g.gremlin('get_eaters_of', 'pea')
         for animal in pea_eaters:
-            print(animal.name, animal.specie) # 'rat rodent' # 'mouse rodent'
+            print(animal.name, animal.specie)  # 'rat rodent' # 'mouse rodent'
 
         rat_cuisine = g.gremlin('get_foods_eaten_by', (rat,))
         for food in rat_cuisine:
-            print(food.name, food.color) # 'pea green'
+            print(food.name, food.color)  # 'pea green'
 
         batch = g.batch()
-        batch['zombie'] = batch.animals.create(name='zombie',specie='undead')
+        batch['zombie'] = batch.animals.create(name='zombie', specie='undead')
         batch['brains'] = batch.foods.create(name='brains', color='grey')
         # Retry up to twenty times
         batch[:] = batch.eats.create(batch[:'zombie'], batch[:'brains']).retry(20)
@@ -207,8 +204,7 @@ class OGMAnimalsRegistryTestCase(OGMAnimalsTestCaseBase):
         rat = g.animal.create(name='rat', specie='rodent')
         mouse = g.animal.create(name='mouse', specie='rodent')
         rat_class = g.registry['animal']
-        queried_rat = g.query(rat_class).filter(
-            rat_class.name.endswith('at') | (rat_class.name == 'tiger')).one()
+        queried_rat = g.query(rat_class).filter(rat_class.name.endswith('at') | (rat_class.name == 'tiger')).one()
 
         assert rat == queried_rat
 
@@ -289,7 +285,7 @@ class OGMMoneyTestCase(unittest.TestCase):
         costanzo = g.people.create(full_name='Costanzo Veronesi', uuid=UUID())
         valerius = g.people.create(full_name='Valerius Burgstaller'
                                    , uuid=UUID())
-        if g.server_version >= (2,1,0):
+        if g.server_version >= (2, 1, 0):
             # Default values supported
             oliver = g.people.create(full_name='Oliver Girard')
         else:
@@ -318,9 +314,7 @@ class OGMMoneyTestCase(unittest.TestCase):
         oliver_carries = Carries.objects.create(oliver, poor_pouch)
 
         g.scripts.add(GroovyScripts.from_file(
-            os.path.join(
-                os.path.split(
-                    os.path.abspath(__file__))[0], 'money.groovy')), 'money')
+            os.path.join(os.path.split(os.path.abspath(__file__))[0], 'money.groovy')), 'money')
         rich_list = g.gremlin('rich_list', 1000000, namespace='money')
         assert costanzo in rich_list and valerius in rich_list and oliver not in rich_list
 
@@ -369,7 +363,7 @@ class OGMClassTestCase(unittest.TestCase):
         self.g = None
 
     def setUp(self):
-        g = self.g = Graph(Config.from_url('classes', 'root', 'root' , initial_drop=True))
+        g = self.g = Graph(Config.from_url('classes', 'root', 'root', initial_drop=True))
 
     def testGraph(self):
         g = self.g
@@ -457,7 +451,6 @@ class UnicodeV(UnicodeNode):
 class OGMUnicodeTestCase(unittest.TestCase):
     def setUp(self):
         g = self.g = Graph(Config.from_url('test_unicode', 'root', 'root', initial_drop=True))
-
         g.create_all(UnicodeNode.registry)
 
     def testUnicode(self):
@@ -582,7 +575,7 @@ class OGMEmbeddedTestCase(unittest.TestCase):
 
 class OGMEmbeddedDefaultsTestCase(unittest.TestCase):
     def setUp(self):
-        g = self.g = Graph(Config.from_url('test_embedded_defaults', 'root', 'root', initial_drop=True))
+        self.g = Graph(Config.from_url('test_embedded_defaults', 'root', 'root', initial_drop=True))
 
     def testDefaultData(self):
         g = self.g
@@ -639,8 +632,9 @@ else:
 class OGMToposortTestCase(unittest.TestCase):
     @staticmethod
     def before(classes, bf, aft):
-        """Test if bf is before aft in the classes list
-            Does not check if both exist
+        """
+        Test if bf is before aft in the classes list
+        Does not check if both exist
         """
         for c in classes:
             if c['name'] == bf:
@@ -651,14 +645,14 @@ class OGMToposortTestCase(unittest.TestCase):
 
     def testToposort(self):
         toposorted = Graph.toposort_classes([
-            { 'name': 'A', 'superClasses': None},
-            { 'name': 'B', 'superClasses': None},
-            { 'name': 'C', 'superClasses': ['B']},
-            { 'name': 'D', 'superClasses': ['E', 'F']},
-            { 'name': 'E', 'superClasses': None},
-            { 'name': 'F', 'superClasses': ['B']},
-            { 'name': 'G', 'superClasses': None, 'properties': [{'linkedClass': 'H'}]},
-            { 'name': 'H', 'superClasses': None}
+            {'name': 'A', 'superClasses': None},
+            {'name': 'B', 'superClasses': None},
+            {'name': 'C', 'superClasses': ['B']},
+            {'name': 'D', 'superClasses': ['E', 'F']},
+            {'name': 'E', 'superClasses': None},
+            {'name': 'F', 'superClasses': ['B']},
+            {'name': 'G', 'superClasses': None, 'properties': [{'linkedClass': 'H'}]},
+            {'name': 'H', 'superClasses': None}
         ])
 
         assert set([c['name'] for c in toposorted]) == set(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'])
@@ -673,8 +667,8 @@ class OGMToposortTestCase(unittest.TestCase):
         # Make sure that this at least stops in case of an infinite dependency loop
         with self.assertRaises(AssertionError):
             toposorted = Graph.toposort_classes([
-                { 'name': 'A', 'superClasses': ['B']},
-                { 'name': 'B', 'superClasses': ['A']}
+                {'name': 'A', 'superClasses': ['B']},
+                {'name': 'B', 'superClasses': ['A']}
             ])
 
 
@@ -779,8 +773,7 @@ class OGMTestInheritance(unittest.TestCase):
         assert not hasattr(pentium, 'version')
 
         # But in strict mode they generate errors
-        g = self.g = Graph(Config.from_url('hardware', 'root', 'root'
-                                           , initial_drop=False), strict=True)
+        g = self.g = Graph(Config.from_url('hardware', 'root', 'root', initial_drop=False), strict=True)
         g.include(g.build_mapping(
             declarative_node(), declarative_relationship(), auto_plural=True))
         with self.assertRaises(AttributeError):
@@ -797,9 +790,7 @@ class OGMTestNullProperties(unittest.TestCase):
         self.g = None
 
     def setUp(self):
-        g = self.g = Graph(Config.from_url('hardware', 'root', 'root'
-                                           , initial_drop=True))
-
+        g = self.g = Graph(Config.from_url('hardware', 'root', 'root', initial_drop=True))
         g.create_all(HardwareNode.registry)
         g.create_all(HardwareRelationship.registry)
 
@@ -848,7 +839,7 @@ class OGMTestClassField(unittest.TestCase):
             declarative_node(), declarative_relationship(), auto_plural=True)
         g.clear_registry()
         g.include(database_registry)
-        if g.server_version > (2,2,0): # Ugly! TODO Isolate version at which behaviour was changed
+        if g.server_version > (2, 2, 0):  # Ugly! TODO Isolate version at which behaviour was changed
             self.assertEquals(
                 {'test_field_1': 'test_string_one', 'test_field_2': 'test string two'},
                 g.registry['classfieldvertex'].class_fields)

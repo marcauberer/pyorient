@@ -102,21 +102,17 @@ class OrientSocket(object):
         self.protocol = -1
         self.session_id = -1
 
-    def detect_server_disconnect(self, server_conn_timeout=SOCK_CONN_TIMEOUT):
-        # Trick to detect server disconnection to prevent this:
-        # https://docs.python.org/2/howto/sockets.html#when-sockets-die
+    def write(self, buff):
+        # This is a trick to detect server disconnection
+        # or broken line issues because of
+        """:see: https://docs.python.org/2/howto/sockets.html#when-sockets-die """
+
         try:
-            # As soon as the connection crashes, this raises an exception
-            return select.select([], [self.socket], [self.socket], server_conn_timeout)
+            _, ready_to_write, in_error = select.select([], [self.socket], [self.socket], 1)
         except select.error as e:
-            # Connection crash, try to shutdown connection gracefully
             self.connected = False
             self.socket.close()
             raise e
-
-    def write(self, buff):
-        # Call method to detect server disconnect
-        _, ready_to_write, in_error = self.detect_server_disconnect(1)
 
         if not in_error and ready_to_write:
             # Socket works -> send all data
@@ -130,8 +126,15 @@ class OrientSocket(object):
 
     def read(self, _len_to_read):
         while True:
-            # Call method to detect server disconnect
-            ready_to_read, _, in_error = self.detect_server_disconnect()
+            # This is a trick to detect server disconnection
+            # or broken line issues because of
+            """:see: https://docs.python.org/2/howto/sockets.html#when-sockets-die """
+            try:
+                ready_to_read, _, in_error = select.select([self.socket, ], [], [self.socket, ], 30)
+            except select.error as e:
+                self.connected = False
+                self.socket.close()
+                raise e
 
             if len(ready_to_read) > 0:
                 buf = bytearray(_len_to_read)

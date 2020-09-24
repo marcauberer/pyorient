@@ -16,9 +16,8 @@
 
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
-from ..constants import CONNECT_OP, FIELD_BYTE, FIELD_INT, FIELD_SHORT, FIELD_STRINGS, FIELD_BOOLEAN, FIELD_STRING,\
-    NAME, SUPPORTED_PROTOCOL, VERSION, SHUTDOWN_OP
-from ..exceptions import PyOrientBadMethodCallException
+from ..constants import CONNECT_OP, FIELD_BYTE, FIELD_BOOLEAN, FIELD_STRING, FIELD_STRINGS, FIELD_SHORT, NAME, VERSION,\
+    SUPPORTED_PROTOCOL
 from ..utils import need_connected
 from .base import BaseMessage
 
@@ -31,6 +30,10 @@ class ConnectMessage(BaseMessage):
         self._pass = ''
         self._client_id = ''
         self._need_token = False
+
+        # Attach handshake headers
+        super(ConnectMessage, self).execute_handshake()
+
         self._append((FIELD_BYTE, CONNECT_OP))
 
     def prepare(self, params=None):
@@ -45,15 +48,17 @@ class ConnectMessage(BaseMessage):
                 pass
 
         # Append header fields
-        self._append((FIELD_STRINGS, [NAME, VERSION]))
-        self._append((FIELD_SHORT, SUPPORTED_PROTOCOL))
-        self._append((FIELD_STRING, self._client_id))
-        self._append((FIELD_STRING, self._orientSocket.serialization_type))
-        self._append((FIELD_BOOLEAN, self._request_token))
-        self._append((FIELD_BOOLEAN, True))  # support-push
-        self._append((FIELD_BOOLEAN, True))  # collect-stats
         self._append((FIELD_STRING, self._user))
         self._append((FIELD_STRING, self._pass))
+        # self._append((FIELD_STRINGS, [NAME, VERSION]))
+        # self._append((FIELD_SHORT, SUPPORTED_PROTOCOL))
+        # self._append((FIELD_STRING, self._client_id))
+        # self._append((FIELD_STRING, self._orientSocket.serialization_type))
+        # self._append((FIELD_BOOLEAN, self._request_token))
+        # self._append((FIELD_BOOLEAN, True))  # support-push
+        # self._append((FIELD_BOOLEAN, True))  # collect-stats
+        # self._append((FIELD_STRING, self._user))
+        # self._append((FIELD_STRING, self._pass))
 
         return super(ConnectMessage, self).prepare()
 

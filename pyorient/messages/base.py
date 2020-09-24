@@ -17,15 +17,15 @@
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
 import struct
-import sys
 
 from ..exceptions import PyOrientBadMethodCallException, PyOrientCommandException, PyOrientNullRecordException
 from ..utils import is_debug_active
 from ..otypes import OrientRecord, OrientRecordLink, OrientNode
 from ..orient import OrientSocket
 from ..serializations import OrientSerialization
-from ..constants import FIELD_INT, FIELD_STRING, FIELD_BYTE, FIELD_BOOLEAN, INT, STRING, STRINGS, BYTE, BYTES, BOOLEAN,\
-    SHORT, LONG, CHAR, LINK, RECORD, FIELD_SHORT, FIELD_TYPE_LINK, FIELD_RECORD
+from ..constants import FIELD_INT, FIELD_STRING, FIELD_BYTE, FIELD_BOOLEAN, FIELD_STRINGS, INT, STRING, STRINGS, BYTE, \
+    BYTES, BOOLEAN, SHORT, LONG, CHAR, LINK, RECORD, FIELD_SHORT, FIELD_TYPE_LINK, FIELD_RECORD, NAME, \
+    SUPPORTED_PROTOCOL, VERSION, HANDSHAKE_OP, FIELD_BYTES
 from ..hexdump import hexdump
 
 # Initialize global variable
@@ -144,16 +144,35 @@ class BaseMessage(object):
         self._fields_definition = []
 
     def prepare(self, *args):
-        # Session id
-        self._fields_definition.insert(1, (FIELD_INT, self._session_id))
-
-        # Auth token
-        if self._need_token and self._request_token is True:
+        if not self._has_handshake():  # Message without handshake
+            # Session id
+            self._fields_definition.insert(1, (FIELD_INT, self._session_id))
+            # Auth token
             self._fields_definition.insert(2, (FIELD_STRING, self._auth_token))
+        else:  # Message with handshake
+            # Session id
+            self._fields_definition.insert(6, (FIELD_INT, self._session_id))
+            print(self._session_id)
+            # Auth token (mandatory for handshake-mandatory messages)
+            self._fields_definition.insert(7, (FIELD_STRING, self._auth_token))
+
+        print(self._fields_definition)
 
         # Build output buffer
         self._output_buffer = b''.join(self._encode_field(x) for x in self._fields_definition)
+        print(self._output_buffer)
         return self
+
+    def _has_handshake(self):
+        return self._fields_definition[0][1] == HANDSHAKE_OP
+
+    def execute_handshake(self):
+        # Append handshake fields
+        self._fields_definition.append((FIELD_BYTE, HANDSHAKE_OP))
+        self._fields_definition.append((FIELD_SHORT, SUPPORTED_PROTOCOL))
+        self._fields_definition.append((FIELD_STRINGS, [NAME, VERSION]))
+        self._fields_definition.append((FIELD_BOOLEAN, False))  # Encoding default
+        self._fields_definition.append((FIELD_BOOLEAN, True))  # Error message string
 
     def get_protocol(self):
         if self._protocol < 0:
@@ -177,12 +196,12 @@ class BaseMessage(object):
                 exception_message += self._decode_field(FIELD_STRING)
                 more = self._decode_field(FIELD_BOOLEAN)
 
-                if self.get_protocol() > 18:  # > 18 1.6-snapshot
-                    # read serialized version of exception thrown on server side
-                    # useful only for java clients
-                    serialized_exception = self._decode_field(FIELD_STRING)
-                    # trash
-                    del serialized_exception
+                # read serialized version of exception thrown on server side
+                # useful only for java clients
+                serialized_exception = self._decode_field(FIELD_STRING)
+                # trash
+                del serialized_exception
+
             raise PyOrientCommandException(exception_class.decode('utf8'), [exception_message.decode('utf8')])
         elif self._header[0] == 3:
             # Push notification, Node cluster changed

@@ -10,6 +10,7 @@ from .commands import VertexCommand, CreateEdgeCommand
 import pyorient
 from collections import namedtuple
 from os.path import isfile
+import sys
 
 ServerVersion = namedtuple('orientdb_version', ['major', 'minor', 'build'])
 
@@ -75,10 +76,12 @@ class Graph(object):
         """Drop entire database."""
         config = self.config
         self.client.connect(config.user, config.cred)
+
+        sys.exit()
+
         try:
             dropped_db = db_name or config.db_name
-            self.client.db_drop(db_name or config.db_name
-                                , storage or config.storage)
+            self.client.db_drop(db_name or config.db_name, storage or config.storage)
         except:
             return False
         finally:

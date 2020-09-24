@@ -65,6 +65,10 @@ class DbOpenMessage(BaseMessage):
         self._client_id = ''
         self._db_name = ''
         self._db_type = DB_TYPE_DOCUMENT
+
+        # Attach handshake headers
+        super(DbOpenMessage, self).execute_handshake()
+
         self._append((FIELD_BYTE, DB_OPEN_OP))
         self._need_token = False
 

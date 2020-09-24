@@ -131,6 +131,21 @@ class OrientRecordLink(object):
         return "#%s" % self.__link
 
 
+class OrientBinaryObject(object):
+    """
+    This will be a RidBag
+    """
+    def __init__(self, string):
+        self.b64 = string
+
+    def get_hash(self):
+        return "_" + self.b64 + "_"
+
+    def getBin(self):
+        import base64
+        return base64.b64decode(self.b64)
+
+
 class OrientCluster(object):
     def __init__(self, name, cluster_id, cluster_type=None, segment=None):
         """
