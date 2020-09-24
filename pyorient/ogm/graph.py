@@ -77,11 +77,12 @@ class Graph(object):
         config = self.config
         self.client.connect(config.user, config.cred)
 
-        sys.exit()
-
         try:
             dropped_db = db_name or config.db_name
             self.client.db_drop(db_name or config.db_name, storage or config.storage)
+
+            while True:
+                pass
         except:
             return False
         finally:

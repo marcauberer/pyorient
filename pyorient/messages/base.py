@@ -152,7 +152,6 @@ class BaseMessage(object):
         else:  # Message with handshake
             # Session id
             self._fields_definition.insert(6, (FIELD_INT, self._session_id))
-            print(self._session_id)
             # Auth token (mandatory for handshake-mandatory messages)
             self._fields_definition.insert(7, (FIELD_STRING, self._auth_token))
 
@@ -160,7 +159,6 @@ class BaseMessage(object):
 
         # Build output buffer
         self._output_buffer = b''.join(self._encode_field(x) for x in self._fields_definition)
-        print(self._output_buffer)
         return self
 
     def _has_handshake(self):
