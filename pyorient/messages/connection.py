@@ -17,9 +17,10 @@
 __author__ = 'mogui <mogui83@gmail.com>, Marc Auberer <marc.auberer@sap.com>'
 
 from ..constants import CONNECT_OP, FIELD_BYTE, FIELD_BOOLEAN, FIELD_STRING, FIELD_STRINGS, FIELD_SHORT, NAME, VERSION,\
-    SUPPORTED_PROTOCOL
+    SUPPORTED_PROTOCOL, FIELD_INT, FIELD_BYTES
 from ..utils import need_connected
 from .base import BaseMessage
+from ..otypes import OrientNode, OrientCluster, OrientVersion
 
 
 class ConnectMessage(BaseMessage):
@@ -63,7 +64,19 @@ class ConnectMessage(BaseMessage):
         return super(ConnectMessage, self).prepare()
 
     def fetch_response(self):
-        pass
+        self._append(FIELD_BYTES)  # content (empty on connect message)
+        self._append(FIELD_BYTE)  # commandNr
+        self._append(FIELD_INT)  # sessionId
+        self._append(FIELD_BYTES)  # sessionToken
+
+        result = super(ConnectMessage, self).fetch_response()
+        _, _, self._session_id, self._auth_token = result
+        if self._auth_token == b'':
+            self.set_session_token(False)
+        self._update_socket_token()
+
+        # IMPORTANT needed to pass the id to other messages
+        self._update_socket_id()
 
     def set_user(self, user):
         """

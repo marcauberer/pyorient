@@ -25,11 +25,14 @@ from ..orient import OrientSocket
 from ..serializations import OrientSerialization
 from ..constants import FIELD_INT, FIELD_STRING, FIELD_BYTE, FIELD_BOOLEAN, FIELD_STRINGS, INT, STRING, STRINGS, BYTE, \
     BYTES, BOOLEAN, SHORT, LONG, CHAR, LINK, RECORD, FIELD_SHORT, FIELD_TYPE_LINK, FIELD_RECORD, NAME, \
-    SUPPORTED_PROTOCOL, VERSION, HANDSHAKE_OP, FIELD_BYTES
+    SUPPORTED_PROTOCOL, VERSION, HANDSHAKE_OP
 from ..hexdump import hexdump
 
 # Initialize global variable
 in_transaction = False
+
+import os
+os.environ['DEBUG'] = "1"
 
 
 class BaseMessage(object):
@@ -179,6 +182,8 @@ class BaseMessage(object):
 
     def _decode_header(self):
         self._header = [self._decode_field(FIELD_BYTE), self._decode_field(FIELD_INT)]
+        print("Status code: " + str(self._header[0]))
+        print("clientTxId: " + str(self._header[1]))
 
         # decode message errors and raise an exception
         if self._header[0] == 1:
@@ -255,7 +260,9 @@ class BaseMessage(object):
     def _decode_body(self):
         # read body
         for field in self._fields_definition:
-            self._body.append(self._decode_field(field))
+            decoded_field = self._decode_field(field)
+            print("Field " + str(decoded_field))
+            self._body.append(decoded_field)
 
         # clear field stack
         self._reset_fields_definition()
