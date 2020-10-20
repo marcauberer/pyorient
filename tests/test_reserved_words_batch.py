@@ -99,76 +99,76 @@ class CommandTestCase(unittest.TestCase):
     #        assert x[0].model == '1123'
     #        assert x[0].ciao == 1234
 
-    def test_new_projection(self):
-        rec = {'@Package': {'name': 'foo', 'version': '1.0.0', 'rid': 'this_is_fake'}}
-        x = self.client.record_create(9, rec)
-        assert x._rid == '#9:0'
-        import re
-        # this can differ from orientDB versions, so i use a regular expression
-        assert re.match('[0-1]', str(x._version))
-        assert x._class == 'Package'
-        assert x.name == 'foo'
-        assert x.version == '1.0.0'
-        assert x.rid == 'this_is_fake'
-        assert x.oRecordData['name'] == 'foo'
-        assert x.oRecordData['version'] == '1.0.0'
-        assert x.oRecordData['rid'] == 'this_is_fake'
+    # def test_new_projection(self):
+    #     rec = {'@Package': {'name': 'foo', 'version': '1.0.0', 'rid': 'this_is_fake'}}
+    #     x = self.client.record_create(9, rec)
+    #     assert x._rid == '#9:0'
+    #     import re
+    #     # this can differ from orientDB versions, so i use a regular expression
+    #     assert re.match('[0-1]', str(x._version))
+    #     assert x._class == 'Package'
+    #     assert x.name == 'foo'
+    #     assert x.version == '1.0.0'
+    #     assert x.rid == 'this_is_fake'
+    #     assert x.oRecordData['name'] == 'foo'
+    #     assert x.oRecordData['version'] == '1.0.0'
+    #     assert x.oRecordData['rid'] == 'this_is_fake'
 
-    def test_sql_batch(self):
-        cmd = "begin;" + \
-              "let a = create vertex set script = true;" + \
-              "let b = select from v limit 1;" + \
-              "let e = create edge from $a to $b;" + \
-              "commit retry 100;"
-
-        edge_result = self.client.batch(cmd)
-
-        # print( cluster_id[0] )
-        # print (cluster_id[0]._in)
-        assert isinstance(edge_result[0]._in,
-                          pyorient.OrientRecordLink)
-        assert edge_result[0]._in.get_hash() == "#9:0", \
-            "in is not equal to '#9:0': %r" % edge_result[0]._in.get_hash()
-
-        # print (cluster_id[0]._out)
-        assert isinstance(edge_result[0]._out, pyorient.OrientRecordLink)
-
-    def test_sql_batch_2(self):
-        cluster_id = self.client.command("create class fb extends V")
-        cluster_id = self.client.command("create class response extends V")
-        cluster_id = self.client.command("create class followed_by extends E")
-
-        cluster_id = self.client.batch((
-            "begin;"
-            "let a = create vertex fb set name = 'd1';"
-            "let b = create vertex response set name = 'a1';"
-            "create edge followed_by from $a to $b;"
-            "commit;"
-        ))
-
-    def test_sql_batch_3(self):
-        cluster_id = self.client.command("create class fb extends V")
-        cluster_id = self.client.command("create class response extends V")
-        cluster_id = self.client.command("create class followed_by extends E")
-
-        cmd = (
-            "begin;"
-            "let a = create vertex fb set name = 'd1';"
-            "let c = select from fb limit 1;"
-            "let d = select from response limit 1;"
-            "let e = create edge from $c to $d;"
-            "commit;"
-        )
-
-        # assert isinstance(self.cluster_info, pyorient.Information)
-
-        # The preceding batch script create an exception
-        # in OrientDB newest than 2.1
-        if self.client.version.major == 2 and \
-                self.client.version.minor >= 1:
-            with self.assertRaises(pyorient.PyOrientCommandException):
-                cluster_id = self.client.batch(cmd)
-        else:
-            cluster_id = self.client.batch(cmd)
+    # def test_sql_batch(self):
+    #     cmd = "begin;" + \
+    #           "let a = create vertex set script = true;" + \
+    #           "let b = select from v limit 1;" + \
+    #           "let e = create edge from $a to $b;" + \
+    #           "commit retry 100;"
+    #
+    #     edge_result = self.client.batch(cmd)
+    #
+    #     # print( cluster_id[0] )
+    #     # print (cluster_id[0]._in)
+    #     assert isinstance(edge_result[0]._in,
+    #                       pyorient.OrientRecordLink)
+    #     assert edge_result[0]._in.get_hash() == "#9:0", \
+    #         "in is not equal to '#9:0': %r" % edge_result[0]._in.get_hash()
+    #
+    #     # print (cluster_id[0]._out)
+    #     assert isinstance(edge_result[0]._out, pyorient.OrientRecordLink)
+    #
+    # def test_sql_batch_2(self):
+    #     cluster_id = self.client.command("create class fb extends V")
+    #     cluster_id = self.client.command("create class response extends V")
+    #     cluster_id = self.client.command("create class followed_by extends E")
+    #
+    #     cluster_id = self.client.batch((
+    #         "begin;"
+    #         "let a = create vertex fb set name = 'd1';"
+    #         "let b = create vertex response set name = 'a1';"
+    #         "create edge followed_by from $a to $b;"
+    #         "commit;"
+    #     ))
+    #
+    # def test_sql_batch_3(self):
+    #     cluster_id = self.client.command("create class fb extends V")
+    #     cluster_id = self.client.command("create class response extends V")
+    #     cluster_id = self.client.command("create class followed_by extends E")
+    #
+    #     cmd = (
+    #         "begin;"
+    #         "let a = create vertex fb set name = 'd1';"
+    #         "let c = select from fb limit 1;"
+    #         "let d = select from response limit 1;"
+    #         "let e = create edge from $c to $d;"
+    #         "commit;"
+    #     )
+    #
+    #     # assert isinstance(self.cluster_info, pyorient.Information)
+    #
+    #     # The preceding batch script create an exception
+    #     # in OrientDB newest than 2.1
+    #     if self.client.version.major == 2 and \
+    #             self.client.version.minor >= 1:
+    #         with self.assertRaises(pyorient.PyOrientCommandException):
+    #             cluster_id = self.client.batch(cmd)
+    #     else:
+    #         cluster_id = self.client.batch(cmd)
 
 # x = CommandTestCase('test_sql_batch_2').run()
