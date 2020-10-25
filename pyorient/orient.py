@@ -25,7 +25,8 @@ import select
 from .serializations import OrientSerialization
 from .utils import dlog
 from .constants import SOCK_CONN_TIMEOUT, FIELD_SHORT, SUPPORTED_PROTOCOL, ERROR_ON_NEWER_PROTOCOL, MESSAGES,\
-    DB_TYPE_DOCUMENT, STORAGE_TYPE_PLOCAL, TYPE_MAP, QUERY_GREMLIN, QUERY_CMD, QUERY_SCRIPT, QUERY_SYNC, QUERY_ASYNC
+    DB_TYPE_GRAPH, DB_TYPE_DOCUMENT, STORAGE_TYPE_PLOCAL, TYPE_MAP, QUERY_GREMLIN, QUERY_CMD, QUERY_SCRIPT, QUERY_SYNC,\
+    QUERY_ASYNC
 from .exceptions import PyOrientConnectionPoolException, PyOrientWrongProtocolVersionException,\
     PyOrientConnectionException, PyOrientBadMethodCallException
 

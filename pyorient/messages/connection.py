@@ -68,9 +68,11 @@ class ConnectMessage(BaseMessage):
         self._append(FIELD_BYTE)  # commandNr
         self._append(FIELD_INT)  # sessionId
         self._append(FIELD_BYTES)  # sessionToken
+        # TODO: Parse response completely. Did not do that due to the lack of time. Maybe needed for more commands
 
         result = super(ConnectMessage, self).fetch_response()
         _, _, self._session_id, self._auth_token = result
+        # self._auth_token = b''  # TODO: Fix token retrieval
         if self._auth_token == b'':
             self.set_session_token(False)
         self._update_socket_token()

@@ -261,7 +261,7 @@ class BaseMessage(object):
         # read body
         for field in self._fields_definition:
             decoded_field = self._decode_field(field)
-            print("Field " + str(decoded_field))
+            print("Field: " + str(decoded_field))
             self._body.append(decoded_field)
 
         # clear field stack

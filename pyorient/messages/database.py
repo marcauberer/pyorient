@@ -280,7 +280,6 @@ class DbCreateMessage(BaseMessage):
 
     @need_connected
     def prepare(self, params=None):
-
         if isinstance(params, tuple) or isinstance(params, list):
             try:
                 self._db_name = params[0]
@@ -357,6 +356,7 @@ class DbDropMessage(BaseMessage):
         self._db_name = ''
         self._storage_type = ''
         self._storage_type = STORAGE_TYPE_PLOCAL
+
         self._append((FIELD_BYTE, DB_DROP_OP))
 
     @need_connected
